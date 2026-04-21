@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+﻿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -36,6 +36,7 @@ env.bak/
 venv.bak/
 
 # Dataset and Models (Large models are ignored, but small datasets are kept)
+embedding_models/
 *.pth
 *.pt
 *.ckpt
