@@ -72,7 +72,32 @@ def clean_artifacts():
         abl_file.unlink()
         print("  Removed file: ./ablation_rows.json")
 
+    # 4. Verify embeddings dir is actually gone
+    emb_dir = Path("./embeddings")
+    if emb_dir.exists():
+        print(f"  WARNING: ./embeddings still exists, force removing...")
+        shutil.rmtree(emb_dir, ignore_errors=True)
+
     print("  (HuggingFace models kept intact)")
+
+
+def safe_infer_vc(texts, expected_count):
+    """Infer CKBERT embeddings with sample count verification."""
+    V_c = inf.infer_vc(texts)
+    if len(V_c) != expected_count:
+        print(f"  WARNING: V_c count mismatch ({len(V_c)} vs {expected_count}), re-encoding...")
+        # Force re-encode by bypassing cache
+        V_c = inf._encode_char_level(texts, "ckbert", batch_size=32, max_length=128, verbose=True)
+    return V_c
+
+
+def safe_infer_vb(texts, expected_count):
+    """Infer BGE embeddings with sample count verification."""
+    V_b = inf.infer_vb(texts)
+    if len(V_b) != expected_count:
+        print(f"  WARNING: V_b count mismatch ({len(V_b)} vs {expected_count}), re-encoding...")
+        V_b = inf._encode_char_level(texts, "bge", batch_size=32, max_length=128, verbose=True)
+    return V_b
 
 
 # %% [markdown]
@@ -102,7 +127,8 @@ for ds_name, ds_cfg in DATASETS.items():
 
     texts = df["comment_text"].astype(str).tolist()
     labels = df["label"].astype(int).tolist()
-    print(f"  texts: {len(texts)}, labels: {len(labels)}")
+    n_samples = len(texts)
+    print(f"  texts: {n_samples}, labels: {len(labels)}")
 
     # --- Step 2: Feature engineering ---
     print("\n[Step 2] Feature engineering — pinyin & wubi...")
@@ -129,12 +155,12 @@ for ds_name, ds_cfg in DATASETS.items():
 
     # --- Step 4: CKBERT & BGE embeddings ---
     print("\n[Step 4] CKBERT character-level embeddings...")
-    V_c = inf.infer_vc(texts)
+    V_c = safe_infer_vc(texts, n_samples)
     print(f"  V_c: {len(V_c)} samples, dim={V_c[0].shape[1]}")
     sv.save_vc_embeddings(V_c)
 
     print("\n[Step 4b] BGE character-level embeddings...")
-    V_b = inf.infer_vb(texts)
+    V_b = safe_infer_vb(texts, n_samples)
     print(f"  V_b: {len(V_b)} samples, dim={V_b[0].shape[1]}")
     sv.save_vb_embeddings(V_b)
 
@@ -144,7 +170,8 @@ for ds_name, ds_cfg in DATASETS.items():
     V_p = sv.load_vp_embeddings()
     V_w = sv.load_vw_embeddings()
     V_b = sv.load_vb_embeddings()
-    assert len(V_c) == len(V_p) == len(V_w) == len(V_b) == len(labels)
+    assert len(V_c) == len(V_p) == len(V_w) == len(V_b) == n_samples, \
+        f"Embedding count mismatch: V_c={len(V_c)}, V_p={len(V_p)}, V_w={len(V_w)}, V_b={len(V_b)}, expected={n_samples}"
     print(f"  V_c={V_c[0].shape[1]}d, V_p={V_p[0].shape[1]}d, "
           f"V_w={V_w[0].shape[1]}d, V_b={V_b[0].shape[1]}d")
 
