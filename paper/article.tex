@@ -121,6 +121,13 @@ v_t^{\mathrm{fused}} = \sum_{k=1}^{K} \alpha_{t,k} \, \hat{v}_{t,k} \in \mathbb{
 \]
 This lets the network emphasize whichever stream is most informative at each character position, rather than applying a fixed weighting. A known limitation of this additive formulation is that it computes stream weights independently---it cannot model pairwise interactions between streams, which may explain why adding a fourth stream (BGE) on top of three does not improve performance when its semantic content overlaps with CKBERT (see Section~5).
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{model_architecture.png}
+\caption{CMLG model architecture. Four embedding streams (CKBERT, BGE, pinyin, wubi) are projected to a shared dimension, fused by additive attention, and encoded by a Bi-GRU before classification.}
+\label{fig:model-architecture}
+\end{figure}
+
 \subsection{Classification Network}
 
 The fused sequence $v^{\mathrm{fused}} \in \mathbb{R}^{T \times 128}$ passes through the following layers. A single-layer bidirectional GRU~\cite{cho2014gru} with hidden size 64 per direction encodes the sequence; the final forward and backward hidden states are concatenated to produce $h_{\mathrm{GRU}} \in \mathbb{R}^{128}$. This vector enters a fully connected block: Linear($128 \to 64$) $\to$ BatchNorm(64) $\to$ ReLU $\to$ Dropout($p = 0.3$) $\to$ Linear($64 \to 2$). The output logits are used directly for prediction (argmax) and for loss computation. The total number of trainable parameters (excluding frozen CKBERT and BGE encoders) is approximately 150K, depending on the number of active streams.
